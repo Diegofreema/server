@@ -1,4 +1,4 @@
-import { CreateUser, VerifyUser } from '@/@types/user';
+import { CreateUser, SignInUser, VerifyUser } from '@/@types/user';
 import emailVerificationSchema from '@/models/emailVerificationSchema';
 import passwordResetToken from '@/models/passwordResetToken';
 import User from '@/models/user';
@@ -12,6 +12,10 @@ import 'dotenv/config';
 import { RequestHandler } from 'express';
 import { isValidObjectId } from 'mongoose';
 import crypto from 'crypto';
+import { RequestWithFiles } from '@/middleware/fileParser';
+import formidable from 'formidable';
+import cloudinary from '@/cloud';
+
 const user = process.env.USER;
 const password = process.env.PASSWORD;
 const link = process.env.PASSWORD_RESET_LINK;
@@ -34,6 +38,26 @@ export const create: RequestHandler = async (req: CreateUser, res) => {
   });
 
   return res.status(201).json({ user: { id: user._id, name, email } });
+};
+export const signIn: RequestHandler = async (req: SignInUser, res) => {
+  const { email, password } = req.body;
+
+  const user = await User.findOne({
+    email,
+  })
+    .populate('organizations')
+    .exec();
+
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  const matched = await user.comparePassword(password);
+  if (!matched) return res.status(403).json({ error: 'Invalid credentials' });
+
+  return res.status(200).json({
+    profile: user,
+  });
 };
 
 export const verifyEmail: RequestHandler = async (req: VerifyUser, res) => {
@@ -108,4 +132,32 @@ export const updatePassword: RequestHandler = async (req, res) => {
 
   await sendSuccessEmail(user.name, user.email);
   res.json({ message: 'Password updated successfully' });
+};
+
+export const updateProfile: any = async (req: any, res: any) => {
+  const { name, email, id } = req.body;
+
+  const avatar = req.files?.avatar as formidable.File;
+  const user = await User.findById(id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  if (avatar) {
+    if (user.avatar?.public_id) {
+      await cloudinary.uploader.destroy(user.avatar.public_id);
+    }
+    const { secure_url, public_id } = await cloudinary.uploader.upload(
+      avatar?.filepath,
+      {
+        width: 200,
+        height: 200,
+        crop: 'thumb',
+        gravity: 'faces',
+      }
+    );
+
+    user.avatar = { url: secure_url, public_id: public_id };
+  }
+
+  await user.save();
+  res.status(201).json({ profile: user });
 };

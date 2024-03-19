@@ -1,5 +1,6 @@
 import passwordResetToken from '@/models/passwordResetToken';
-import { RequestHandler } from 'express';
+import { Request, RequestHandler } from 'express';
+import formidable, { File } from 'formidable';
 
 export const isValidPassResetToken: RequestHandler = async (req, res, next) => {
   const { token, email } = req.body;

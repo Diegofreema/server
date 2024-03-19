@@ -18,6 +18,18 @@ export const CreateUserSchema = yup.object().shape({
       'Password must contain at least one uppercase letter, one lowercase letter, one number and one special character'
     ),
 });
+export const SignInSchema = yup.object().shape({
+  email: yup.string().email('Invalid email').required('Email is missing!'),
+  password: yup
+    .string()
+    .trim()
+    .required('Password is missing!')
+    .min(8, 'Password is too short!')
+    .matches(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+      'Password must contain at least one uppercase letter, one lowercase letter, one number and one special character'
+    ),
+});
 
 export const VerifyEmailSchema = yup.object().shape({
   name: yup
